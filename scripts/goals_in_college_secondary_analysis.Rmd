@@ -1,0 +1,91 @@
+---
+title: "SONA2_data_prep"
+author: "`r Sys.getenv('USER')`"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    highlight: tango
+    theme: united
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+  pdf_document:
+    toc: yes
+  md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(error = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r libraries}
+library(tidyverse)
+library(here)
+library(psych)
+library(janitor)
+library(broom)
+library(gt)
+library(gtsummary)
+```
+
+load datasets
+```{r}
+# goal level variables
+goalRating_long_R <- read.csv(here("inputs", "goalRating_long_R.csv"))
+
+# cleaned demographic dataset
+demoDf <- read.csv(here("inputs", "demoDf.csv"))
+
+# pair-wise data
+pairDf <- read.csv(here("inputs", "pairDf.csv"))
+
+# cleaned long format dataframe for goal prority
+prorityDf_long <- read.csv(here("inputs", "prorityDf_long.csv"))
+
+# goal content 
+listedGoals <- read.csv(here("inputs", "listedGoals.csv"))
+```
+
+# create a goal level dataframe
+
+## select goal representation variables
+- Numbers of listed goals [listNum]
+- Numbers of claimed goals [total_goal]
+- Time scope [temporal_duration]
+- Initial time [initial_time_R]
+- construal level [construal_level]
+
+```{r}
+goalDf <- goalRating_long_R %>%
+  filter(variable %in% c("construal_level", "initial_time_R", "temporal_duration")) %>%
+  spread(variable, rating)
+```
+
+## merge with individual level variables and goal content
+
+```{r}
+goalDf_merged <- goalDf %>%
+  left_join(select(listedGoals, -goal_id), by = c("id", "goal" = "goal_order")) %>%
+  left_join(demoDf, by = "id") %>%
+  left_join(select(prorityDf_long, id, goal, priority), by = c("id", "goal")) %>%
+  rename(goal_id = goal, 
+         goal_content = Goals) %>%
+  mutate(construal_level = na_if(construal_level, 99), # replace "I'm not sure" with NA
+         temporal_duration = na_if(temporal_duration, 999)) # replace "not specified" with NA
+
+#write.csv(goalDf_merged, here("outputs", "goalDf_merged.csv"), row.names = F)
+```
+
+# create pair-wise dataframe
+
+```{r}
+pairDf_cleaned <- select(pairDf, id, pair, equifinality) %>%
+  rename(pair_id = pair)
+
+#write.csv(pairDf_cleaned, here("outputs", "pairDf_cleaned.csv"), row.names = F)
+```
+
